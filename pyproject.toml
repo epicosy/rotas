@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+repository = "https://github.com/epicosy/rotas"
+homepage = "https://github.com/epicosy/rotas"
+
+[project]
+name="rotas"
+version = "0.0.1"
+description = "API module for the vulnerability database"
+readme = "README.md"
+authors = [
+    {name = "Eduard Pinconschi", email="eduard.pinconschi@tecnico.ulisboa.pt"}
+]
+keywords = ["api", "vulnerability", "database"]
+license = {file = "LICENSE.txt"}
+requires-python = ">=3.10"
+classifiers = [
+    "Topic :: Software Development",
+    "Programming Language :: Python",
+    "Environment :: Console",
+    "Intended Audience :: Developers"
+]
+dependencies = [
+    "graphene>=2.1.9",
+    "graphene-sqlalchemy>=2.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+    "coverage",
+    "twine>=1.11.0",
+    "setuptools>=38.6.0",
+    "wheel>=0.31.0"
+]
+
+
+[tool.setuptools.packages.find]
+exclude = ["ez_setup", "tests*"]
+
+
+[project.scripts]
+rotas = "rotas.main:main"
