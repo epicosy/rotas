@@ -4,8 +4,8 @@ from graphene_sqlalchemy import SQLAlchemyObjectType
 from rotas.arepo.arepo.models.git import (CommitModel, CommitFileModel, RepositoryModel, RepositoryTopicModel,
                                           TopicModel, RepositoryProductTypeModel)
 
-from rotas.objects.sqlqlchemy.common.platform import ProductType
-from rotas.objects.sqlqlchemy.code import Line, LineModel
+from rotas.objects.sqlalchemy.common.platform import ProductType
+from rotas.objects.sqlalchemy.code import Line, LineModel
 
 
 class RepositoryTopic(SQLAlchemyObjectType):

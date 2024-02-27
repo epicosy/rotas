@@ -4,7 +4,7 @@ from graphene_sqlalchemy import SQLAlchemyObjectType
 
 from rotas.arepo.arepo.models.data import (ProfileModel, ProfileCWEModel, DatasetVulnerabilityModel, WeaknessModel,
                                            DatasetModel)
-from rotas.objects.sqlqlchemy.common.vulnerability import Vulnerability, VulnerabilityModel
+from rotas.objects.sqlalchemy.common.vulnerability import Vulnerability, VulnerabilityModel
 
 
 class Profile(SQLAlchemyObjectType):

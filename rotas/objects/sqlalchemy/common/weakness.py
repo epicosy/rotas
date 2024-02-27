@@ -4,7 +4,7 @@ from rotas.arepo.arepo.models.common.weakness import (AbstractionModel, Grouping
                                                       CWEModel, CWEBFClassModel)
 
 from rotas.arepo.arepo.models.bf import BFClassModel, PhaseModel, OperationModel
-from rotas.objects.sqlqlchemy.bf import Operation, Phase, BFClass
+from rotas.objects.sqlalchemy.bf import Operation, Phase, BFClass
 
 
 class Abstraction(SQLAlchemyObjectType):
