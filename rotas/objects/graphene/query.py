@@ -2,15 +2,17 @@ import graphene
 
 from graphene import ObjectType
 
-from rotas.objects.sqlalchemy.data import DatasetVulnerability, DatasetVulnerabilityModel
 from rotas.objects.sqlalchemy.common.vulnerability import Vulnerability, VulnerabilityModel
+from rotas.objects.sqlalchemy.data import DatasetVulnerability, DatasetVulnerabilityModel
 
-from rotas.objects.graphene.queries.counts import CountsQuery
+from rotas.objects.graphene.queries.count.common import CommonCountQuery
+from rotas.objects.graphene.queries.count.git import GitCountQuery
+
 from rotas.objects.graphene.queries.entity import EntityQuery
 from rotas.objects.graphene.queries.pagination import PaginationQuery
 
 
-class Query(CountsQuery, EntityQuery, PaginationQuery, ObjectType):
+class Query(CommonCountQuery, GitCountQuery, EntityQuery, PaginationQuery, ObjectType):
     search_vulnerability = graphene.List(lambda: Vulnerability, keyword=graphene.String(), limit=graphene.Int())
     datasets_overlap = graphene.Float(src_id=graphene.Int(), tgt_id=graphene.Int())
 

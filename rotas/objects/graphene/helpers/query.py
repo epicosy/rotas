@@ -3,9 +3,8 @@ import sqlalchemy
 from graphql import GraphQLError
 from sqlalchemy.sql import select
 
-from rotas.objects.sqlalchemy.common.vulnerability import (Vulnerability, VulnerabilityModel, VulnerabilityCWEModel,
-                                                           Reference, ReferenceModel, ReferenceTagModel)
-
+from rotas.objects.sqlalchemy.common.vulnerability import (Vulnerability, VulnerabilityModel, Reference, ReferenceModel,
+                                                           VulnerabilityCWEModel, ReferenceTagModel)
 from rotas.objects.sqlalchemy.git import Commit, CommitModel, CommitFile, CommitFileModel
 
 

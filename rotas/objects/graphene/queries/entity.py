@@ -2,40 +2,18 @@ import graphene
 
 from graphene.types.objecttype import ObjectType
 
-from rotas.objects.sqlalchemy.common.weakness import CWE, CWEModel
-from rotas.objects.sqlalchemy.common.platform import ProductType, Product, ProductModel
-from rotas.objects.sqlalchemy.common.vulnerability import (Vulnerability, VulnerabilityModel, VulnerabilityCWEModel,
-                                                           VulnerabilityCWE, Reference)
+from arepo.models.common.vulnerability import VulnerabilityCWEModel
+from rotas.objects.sqlalchemy.common.vulnerability import Vulnerability, VulnerabilityModel, Reference, VulnerabilityCWE
 
 from rotas.objects.sqlalchemy.git import Commit, CommitModel, Repository, RepositoryModel
+from rotas.objects.sqlalchemy.common.weakness import CWE, CWEModel
+from rotas.objects.sqlalchemy.common.platform import ProductType, Product, ProductModel
+
 from rotas.objects.sqlalchemy.data import Dataset, DatasetModel, Profile
 from rotas.objects.sqlalchemy.code import Function, FunctionModel
-from rotas.objects.graphene.queries.counts import ProfileCount
 
-
-class Position(ObjectType):
-    line = graphene.Int()
-    column = graphene.Int()
-
-
-class MethodBoundary(ObjectType):
-    name = graphene.String()
-    start = graphene.Field(lambda: Position)
-    end = graphene.Field(lambda: Position)
-    code = graphene.List(graphene.String)
-
-
-class Stats(ObjectType):
-    total = graphene.Int()
-    labeled = graphene.Int()
-    references = graphene.Int()
-    commits = graphene.Int()
-
-
-class Link(ObjectType):
-    at = graphene.String()
-    to = graphene.String()
-    count = graphene.Int()
+from rotas.objects.graphene.helpers.types import LinkCount, Stats
+# TODO: To be added MethodBoundary
 
 
 class EntityQuery(ObjectType):
@@ -50,11 +28,11 @@ class EntityQuery(ObjectType):
     product = graphene.Field(Product, id=graphene.ID())
     dataset = graphene.Field(lambda: Dataset, id=graphene.ID())
     datasets = graphene.List(lambda: Dataset)
-    functions = graphene.List(lambda: MethodBoundary, file_id=graphene.String())
-    profiles = graphene.List(lambda: ProfileCount)
+    profiles = graphene.List(lambda: Profile)
     stats = graphene.Field(Stats)
-    links = graphene.List(Link)
-
+    links = graphene.List(LinkCount)
+    # TODO: not yet part of the schema
+    # functions = graphene.List(lambda: MethodBoundary, file_id=graphene.String())
 
     def resolve_cwes(self, info, id=None, exists: bool = False):
         query = CWE.get_query(info)
@@ -150,7 +128,7 @@ class EntityQuery(ObjectType):
             link_name = f"{bf_classes[0].name}_{phases[0].name}"
 
             if link_name not in mapping:
-                mapping[link_name] = Link(bf_classes[0].name, phases[0].name, cwe_counts)
+                mapping[link_name] = LinkCount(bf_classes[0].name, phases[0].name, cwe_counts)
             else:
                 mapping[link_name].count += cwe_counts
 
@@ -160,7 +138,7 @@ class EntityQuery(ObjectType):
             link_name = f"{phases[0].name}_{operations[0].name}"
 
             if link_name not in mapping:
-                mapping[link_name] = Link(phases[0].name, operations[0].name, cwe_counts)
+                mapping[link_name] = LinkCount(phases[0].name, operations[0].name, cwe_counts)
             else:
                 mapping[link_name].count += cwe_counts
 

@@ -1,6 +1,6 @@
 from graphene_sqlalchemy import SQLAlchemyObjectType
 
-from rotas.arepo.arepo.models.code import LineModel, FunctionModel
+from arepo.models.code import LineModel, FunctionModel
 
 
 class Line(SQLAlchemyObjectType):

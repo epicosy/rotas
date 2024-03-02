@@ -24,8 +24,9 @@ classifiers = [
     "Intended Audience :: Developers"
 ]
 dependencies = [
-    "graphene>=2.1.9",
-    "graphene-sqlalchemy>=2.0",
+    "graphene>=3.0",
+    "graphene-sqlalchemy~=3.0.0rc1",
+    "arepo==0.1.0"
 ]
 
 [project.optional-dependencies]

@@ -1,7 +1,7 @@
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType
-from rotas.arepo.arepo.models.common.platform import (ProductTypeModel, ProductModel, VendorModel, ConfigurationModel,
-                                                      ConfigurationVulnerabilityModel)
+from arepo.models.common.platform import (ProductTypeModel, ProductModel, VendorModel, ConfigurationModel,
+                                          ConfigurationVulnerabilityModel)
 
 
 class ProductType(SQLAlchemyObjectType):

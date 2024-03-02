@@ -2,8 +2,7 @@ import graphene
 
 from graphene_sqlalchemy import SQLAlchemyObjectType
 
-from rotas.arepo.arepo.models.data import (ProfileModel, ProfileCWEModel, DatasetVulnerabilityModel, WeaknessModel,
-                                           DatasetModel)
+from arepo.models.data import (ProfileModel, ProfileCWEModel, DatasetVulnerabilityModel, WeaknessModel, DatasetModel)
 from rotas.objects.sqlalchemy.common.vulnerability import Vulnerability, VulnerabilityModel
 
 

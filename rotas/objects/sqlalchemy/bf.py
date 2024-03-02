@@ -1,5 +1,5 @@
 from graphene_sqlalchemy import SQLAlchemyObjectType
-from rotas.arepo.arepo.models.bf import OperationModel, PhaseModel, BFClassModel
+from arepo.models.bf import OperationModel, PhaseModel, BFClassModel
 
 
 class Operation(SQLAlchemyObjectType):

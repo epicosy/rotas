@@ -4,10 +4,14 @@ from sqlalchemy import or_
 from typing import List
 from graphene.types.objecttype import ObjectType
 
-from rotas.objects.sqlalchemy.common.vulnerability import (Vulnerability, Commit, CWEModel, VulnerabilityCWEModel,
-                                                           VulnerabilityModel)
 
-from rotas.objects.sqlalchemy.git import Repository, CommitFile, RepositoryModel
+from arepo.models.common.vulnerability import VulnerabilityCWEModel, VulnerabilityModel
+from arepo.models.common.weakness import CWEModel
+from arepo.models.git import RepositoryModel
+
+
+from rotas.objects.sqlalchemy.common.vulnerability import Vulnerability
+from rotas.objects.sqlalchemy.git import Repository, CommitFile, Commit
 from rotas.objects.sqlalchemy.common.platform import Configuration, Vendor, Product
 
 
