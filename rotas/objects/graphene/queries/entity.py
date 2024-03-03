@@ -12,7 +12,7 @@ from rotas.objects.sqlalchemy.common.platform import ProductType, Product, Produ
 from rotas.objects.sqlalchemy.data import Dataset, DatasetModel, Profile
 from rotas.objects.sqlalchemy.code import Function, FunctionModel
 
-from rotas.objects.graphene.helpers.types import LinkCount, Stats
+from rotas.objects.graphene.helpers.types import LinkCount, LinkCountValueObject, Stats, StatsValueObject
 # TODO: To be added MethodBoundary
 
 
@@ -34,11 +34,12 @@ class EntityQuery(ObjectType):
     # TODO: not yet part of the schema
     # functions = graphene.List(lambda: MethodBoundary, file_id=graphene.String())
 
-    def resolve_cwes(self, info, id=None, exists: bool = False):
+    @staticmethod
+    def resolve_cwes(parent, info, cwe_id: int = None, exists: bool = False):
         query = CWE.get_query(info)
 
-        if id:
-            query = query.filter(CWEModel.id == id)
+        if cwe_id:
+            query = query.filter(CWEModel.id == cwe_id)
 
         if exists:
             # return CWEs that have vulnerabilities associated
@@ -46,8 +47,9 @@ class EntityQuery(ObjectType):
 
         return query.order_by('id').all()
 
-    def resolve_vulnerability(self, info, id: int):
-        return Vulnerability.get_query(info).filter(VulnerabilityModel.id == id).first()
+    @staticmethod
+    def resolve_vulnerability(parent, info, vul_id: int):
+        return Vulnerability.get_query(info).filter(VulnerabilityModel.id == vul_id).first()
 
     def resolve_vulnerabilities(self, info, id=None, first: int = None, skip: int = None, last: int = None, **kwargs):
         query = Vulnerability.get_query(info).order_by(VulnerabilityModel.published_date.desc())
@@ -94,15 +96,18 @@ class EntityQuery(ObjectType):
     def resolve_profiles(self, info):
         return Profile.get_query(info).all()
 
-    def resolve_stats(self, info):
+    @staticmethod
+    def resolve_stats(parent, info):
         total = Vulnerability.get_query(info).count()
         references = Reference.get_query(info).count()
         labeled = VulnerabilityCWE.get_query(info).count()
         commits = Commit.get_query(info).count()
 
-        return Stats(total, labeled, references, commits)
+        return StatsValueObject(total, labeled, references, commits)
 
-    def resolve_links(self, info):
+    @staticmethod
+    def resolve_links(parent, info):
+        # TODO: refactor, is slow and this approach does not make sense
         cwe_ids = CWE.get_query(info).all()
         mapping = {}
 
@@ -112,33 +117,29 @@ class EntityQuery(ObjectType):
             if cwe_counts < 1:
                 continue
 
-            bf_classes = CWE.resolve_bf_class(cwe, info)
-            phases = CWE.resolve_phases(cwe, info)
-            operations = CWE.resolve_operations(cwe, info)
-
-            if len(bf_classes) > 1:
+            if len(cwe.bf_classes) != 1:
                 continue
 
-            if bf_classes[0].name == "None":
+            if cwe.bf_classes[0].name == "None":
                 continue
 
-            if len(phases) > 1:
+            if len(cwe.phases) != 1:
                 continue
 
-            link_name = f"{bf_classes[0].name}_{phases[0].name}"
+            link_name = f"{cwe.bf_classes[0].name} - {cwe.phases[0].name}"
 
             if link_name not in mapping:
-                mapping[link_name] = LinkCount(bf_classes[0].name, phases[0].name, cwe_counts)
+                mapping[link_name] = LinkCount(cwe.bf_classes[0].name, cwe.phases[0].name, cwe_counts)
             else:
                 mapping[link_name].count += cwe_counts
 
-            if len(operations) > 1:
+            if len(cwe.operations) != 1:
                 continue
 
-            link_name = f"{phases[0].name}_{operations[0].name}"
+            link_name = f"{cwe.phases[0].name} - {cwe.operations[0].name}"
 
             if link_name not in mapping:
-                mapping[link_name] = LinkCount(phases[0].name, operations[0].name, cwe_counts)
+                mapping[link_name] = LinkCount(cwe.phases[0].name, cwe.operations[0].name, cwe_counts)
             else:
                 mapping[link_name].count += cwe_counts
 

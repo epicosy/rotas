@@ -57,7 +57,9 @@ class CommonCountQuery(ObjectType):
 
         return [GrapheneCount(key=k, value=v) for k, v in cwe_counts]
 
-    def resolve_assigners(self, info, company: bool = False):
+    @staticmethod
+    def resolve_assigners_count(parent, info, company: bool = False):
+        # TODO: this resolver is slow and needs to be optimized
         assigners = Vulnerability.get_query(info).distinct(VulnerabilityModel.assigner)
         counts = {}
 

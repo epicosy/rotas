@@ -26,7 +26,11 @@ classifiers = [
 dependencies = [
     "graphene>=3.0",
     "graphene-sqlalchemy~=3.0.0rc1",
-    "arepo==0.1.0"
+    "arepo==0.1.0",
+    "starlette~=0.37.1",
+    "starlette-graphene3~=0.6.0",
+    "uvicorn~=0.27.1",
+    "websockets~=12.0"
 ]
 
 [project.optional-dependencies]

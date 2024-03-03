@@ -1,4 +1,8 @@
+from collections import namedtuple
+
 import graphene
+
+
 from graphene import ObjectType
 
 
@@ -42,7 +46,13 @@ class Stats(ObjectType):
     commits = graphene.Int()
 
 
+StatsValueObject = namedtuple("Stats", ["total", "labeled", "references", "commits"])
+
+
 class LinkCount(ObjectType):
     at = graphene.String()
     to = graphene.String()
     count = graphene.Int()
+
+
+LinkCountValueObject = namedtuple("LinkCount", ["at", "to", "count"])
