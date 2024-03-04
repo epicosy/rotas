@@ -11,6 +11,8 @@ class GrapheneCount(graphene.ObjectType):
     value = graphene.Int()
 
 
+GrapheneCountValueObject = namedtuple("GrapheneCount", ["key", "value"])
+
 class NestedGrapheneCount(ObjectType):
     key = graphene.String()
     values = graphene.List(GrapheneCount)

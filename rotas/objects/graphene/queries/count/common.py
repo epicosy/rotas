@@ -1,5 +1,6 @@
 import graphene
 import sqlalchemy
+from sqlalchemy import func
 
 from graphene.types.objecttype import ObjectType
 
@@ -12,7 +13,7 @@ from arepo.models.common.weakness import CWEModel, GroupingModel
 from rotas.objects.sqlalchemy.common.vulnerability import Vulnerability, Reference, Tag, VulnerabilityCWE
 from rotas.objects.sqlalchemy.common.platform import Configuration, Product
 from rotas.objects.sqlalchemy.common.weakness import CWE, Grouping
-from rotas.objects.graphene.helpers.types import GrapheneCount, NestedGrapheneCount
+from rotas.objects.graphene.helpers.types import GrapheneCount, NestedGrapheneCount, GrapheneCountValueObject
 
 from rotas.utils import extract_company
 
@@ -37,19 +38,16 @@ class CommonCountQuery(ObjectType):
     configs_count_by_vendor = graphene.List(lambda: GrapheneCount)
     configs_count_by_product = graphene.List(lambda: GrapheneCount)
 
-    def resolve_tags_count(self, info):
+    @staticmethod
+    def resolve_tags_count(parent, info):
         query = Reference.get_query(info).join(ReferenceTagModel).join(TagModel)
-        counts = {}
+        # Perform aggregation using group_by and func.count()
+        counts = query.group_by(TagModel.name).with_entities(TagModel.name, func.count()).all()
 
-        for tag in Tag.get_query(info).all():
-            tag_counts = query.filter(TagModel.name == tag.name).count()
+        counts_dict = {name: count for name, count in counts}
+        graphene_counts = [GrapheneCountValueObject(key=name, value=count) for name, count in counts_dict.items()]
 
-            if tag not in counts:
-                counts[tag.name] = tag_counts
-            else:
-                counts[tag.name] += tag_counts
-
-        return [GrapheneCount(key=k, value=v) for k, v in counts.items()]
+        return graphene_counts
 
     def resolve_cwe_counts(self, info):
         cwe_counts = Vulnerability.get_query(info).join(VulnerabilityCWEModel).join(CWEModel).group_by(CWEModel.id).\
@@ -59,21 +57,21 @@ class CommonCountQuery(ObjectType):
 
     @staticmethod
     def resolve_assigners_count(parent, info, company: bool = False):
-        # TODO: this resolver is slow and needs to be optimized
-        assigners = Vulnerability.get_query(info).distinct(VulnerabilityModel.assigner)
-        counts = {}
+        # Perform aggregation using group_by and func.count()
+        counts = (Vulnerability.get_query(info).group_by(VulnerabilityModel.assigner)
+                  .with_entities(VulnerabilityModel.assigner, func.count()).all())
 
-        for vuln in assigners:
-            assigner_counts = Vulnerability.get_query(info).filter(VulnerabilityModel.assigner == vuln.assigner).count()
+        assigners_count = {}
 
-            assigner = extract_company(vuln.assigner) if company else vuln.assigner
+        for k, v in counts:
+            company_name = extract_company(k) if company else k
 
-            if assigner not in counts:
-                counts[assigner] = assigner_counts
-            else:
-                counts[assigner] += assigner_counts
+            if company_name not in assigners_count:
+                assigners_count[company_name] = v
 
-        return [GrapheneCount(key=k, value=v) for k, v in counts.items()]
+            assigners_count[company_name] += v
+
+        return [GrapheneCountValueObject(key=k, value=v) for k, v in assigners_count.items()]
 
     def resolve_sw_type_count(self, info):
         query = Product.get_query(info).join(ProductTypeModel)
