@@ -2,7 +2,7 @@ import argparse
 import uvicorn
 
 from rotas import create_api
-from arepo.db import DatabaseConnection
+from arepo.db import DatabaseConnection, Base
 from rotas.utils import get_allowed_origins
 
 
@@ -22,6 +22,12 @@ def main():
 
     db_con = DatabaseConnection(args.uri)
     session = db_con.get_session(scoped=True)
+
+    def save_function(self):
+        session.add(self)
+        session.commit()
+
+    Base.save = save_function
 
     if args.subparser == 'serve':
         # TODO: fix this, for some reason none of the origins work, only when the origin is hardcoded

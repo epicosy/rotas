@@ -115,7 +115,7 @@ class CreateDataset(graphene.Mutation):
 class AddDatasetVulnerabilities(graphene.Mutation):
     class Arguments:
         vulnerability_ids = graphene.List(graphene.String, required=True)
-        dataset_id = graphene.Int(required=True)
+        dataset_id = graphene.ID(required=True)
 
     dataset = graphene.Field(lambda: Dataset)
 
