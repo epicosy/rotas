@@ -1,12 +1,6 @@
 from graphene_sqlalchemy import SQLAlchemyObjectType
 
-from arepo.models.code import LineModel, FunctionModel
-
-
-class Line(SQLAlchemyObjectType):
-    class Meta:
-        model = LineModel
-        use_connection = True
+from arepo.models.vcs.symbol import FunctionModel
 
 
 class Function(SQLAlchemyObjectType):

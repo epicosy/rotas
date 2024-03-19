@@ -8,7 +8,7 @@ from graphene.types.objecttype import ObjectType
 
 from arepo.models.common.vulnerability import VulnerabilityCWEModel, VulnerabilityModel
 from arepo.models.common.weakness import CWEModel
-from arepo.models.git import RepositoryModel
+from arepo.models.vcs.core import RepositoryModel
 
 
 from rotas.objects.sqlalchemy.common.vulnerability import Vulnerability

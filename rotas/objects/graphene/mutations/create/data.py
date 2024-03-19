@@ -4,7 +4,7 @@ from typing import List
 from graphql import GraphQLError
 
 from arepo.models.common.vulnerability import VulnerabilityModel
-from arepo.models.git import CommitModel
+from arepo.models.vcs.core import CommitModel
 from arepo.models.data import ProfileModel, ProfileCWEModel, DatasetVulnerabilityModel, DatasetModel
 
 from rotas.objects.sqlalchemy.common.vulnerability import Vulnerability

@@ -9,7 +9,8 @@ from sqlalchemy.sql import select
 
 from arepo.models.common.platform import ProductTypeModel, ConfigurationModel, ProductModel
 from arepo.models.common.vulnerability import VulnerabilityModel, VulnerabilityCWEModel
-from arepo.models.git import CommitModel, RepositoryModel, CommitFileModel, RepositoryTopicModel, TopicModel
+from arepo.models.vcs.core import CommitModel, RepositoryModel, CommitFileModel
+from arepo.models.vcs.symbol import RepositoryTopicModel, TopicModel
 
 from rotas.objects.sqlalchemy.common.vulnerability import VulnerabilityCWE
 from rotas.objects.sqlalchemy.common.platform import ProductType

@@ -3,7 +3,7 @@ import graphene
 from graphql import GraphQLError
 
 
-from arepo.models.git import RepositoryProductTypeModel
+from arepo.models.vcs.symbol import RepositoryProductTypeModel
 from rotas.objects.sqlalchemy.git import Repository, ProductType, RepositoryProductType
 
 

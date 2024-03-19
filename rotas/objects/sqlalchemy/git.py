@@ -1,11 +1,9 @@
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType
 
-from arepo.models.git import (CommitModel, CommitFileModel, RepositoryModel, RepositoryTopicModel, TopicModel,
-                              RepositoryProductTypeModel)
-from arepo.models.code import LineModel
+from arepo.models.vcs.core import (CommitModel, CommitFileModel, RepositoryModel)
+from arepo.models.vcs.symbol import RepositoryTopicModel, TopicModel, RepositoryProductTypeModel
 
-from rotas.objects.sqlalchemy.code import Line
 from rotas.objects.sqlalchemy.common.platform import ProductType
 
 
@@ -34,11 +32,6 @@ class CommitFile(SQLAlchemyObjectType):
     id = graphene.String()
     filename = graphene.String()
     patch = graphene.String()
-    content = graphene.String()
-
-    def resolve_content(self, info):
-        lines = Line.get_query(info).filter_by(commit_file_id=self.id).order_by(LineModel.number).all()
-        return '\n'.join([line.content for line in lines])
 
     def resolve_patch(self, info):
         return self.patch

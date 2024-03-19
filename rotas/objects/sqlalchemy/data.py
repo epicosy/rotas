@@ -3,11 +3,9 @@ import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType
 
 from arepo.models.data import (ProfileModel, ProfileCWEModel, DatasetVulnerabilityModel, WeaknessModel, DatasetModel)
-from arepo.models.git import CommitModel
 
 from rotas.objects.graphene.helpers.types import GrapheneCount
 from rotas.objects.sqlalchemy.common.vulnerability import Vulnerability, VulnerabilityModel
-from rotas.objects.sqlalchemy.git import Commit
 
 
 class Profile(SQLAlchemyObjectType):
