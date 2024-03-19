@@ -19,6 +19,7 @@ class CreateProfile(graphene.Mutation):
         has_code = graphene.Boolean(required=False)
         has_exploit = graphene.Boolean(required=False)
         has_advisory = graphene.Boolean(required=False)
+        single_commit = graphene.Boolean(required=False)
         start_year = graphene.Int(required=False)
         end_year = graphene.Int(required=False)
         start_score = graphene.Float(required=False)
@@ -34,8 +35,8 @@ class CreateProfile(graphene.Mutation):
 
     def mutate(self, info, name: str, start_year: int = 1987, end_year: int = None, cwe_ids: List[int] = None,
                start_score: float = 0, end_score: float = 10, has_code: bool = False, has_exploit: bool = False,
-               has_advisory: bool = False, min_changes: int = 0, max_changes: int = None, min_files: int = 0,
-               max_files: int = None, extensions: List[str] = None):
+               has_advisory: bool = False, single_commit: bool = False, min_changes: int = 0, max_changes: int = None,
+               min_files: int = 0, max_files: int = None, extensions: List[str] = None):
 
         if Profile.get_query(info).filter_by(name=name).first():
             raise GraphQLError(f"Profile with name {name} already exists")
@@ -52,7 +53,7 @@ class CreateProfile(graphene.Mutation):
         profile = ProfileModel(name=name, start_year=start_year, end_year=end_year, start_score=start_score,
                                end_score=end_score, min_changes=min_changes, max_changes=max_changes,
                                min_files=min_files, max_files=max_files, has_code=has_code, has_exploit=has_exploit,
-                               has_advisory=has_advisory, extension=extension)
+                               has_advisory=has_advisory, single_commit=single_commit, extension=extension)
         profile.save()
 
         for cwe_id in cwe_ids:
@@ -93,7 +94,8 @@ class CreateDataset(graphene.Mutation):
                                               start_score=profile.start_score, end_score=profile.end_score,
                                               cwe_ids=cwe_ids, has_exploit=profile.has_exploit,
                                               has_advisory=profile.has_advisory)
-            commit_query = profiling_commit_query(info, vuln_query, min_changes=profile.min_changes,
+            commit_query = profiling_commit_query(info, vuln_query, single_commit=profile.single_commit,
+                                                  min_changes=profile.min_changes,
                                                   max_changes=profile.max_changes, min_files=profile.min_files,
                                                   max_files=profile.max_files, extensions=extensions)
 
