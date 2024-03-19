@@ -39,7 +39,7 @@ class CommonCountQuery(ObjectType):
     configs_count_by_product = graphene.List(lambda: GrapheneCount)
 
     @staticmethod
-    def resolve_tags_count(parent, info):
+    async def resolve_tags_count(parent, info):
         query = Reference.get_query(info).join(ReferenceTagModel).join(TagModel)
         # Perform aggregation using group_by and func.count()
         counts = query.group_by(TagModel.name).with_entities(TagModel.name, func.count()).all()
@@ -56,7 +56,7 @@ class CommonCountQuery(ObjectType):
         return [GrapheneCount(key=k, value=v) for k, v in cwe_counts]
 
     @staticmethod
-    def resolve_assigners_count(parent, info, company: bool = False):
+    async def resolve_assigners_count(parent, info, company: bool = False):
         # Perform aggregation using group_by and func.count()
         counts = (Vulnerability.get_query(info).group_by(VulnerabilityModel.assigner)
                   .with_entities(VulnerabilityModel.assigner, func.count()).all())
@@ -99,13 +99,14 @@ class CommonCountQuery(ObjectType):
 
         return [GrapheneCount(key=k, value=v) for k, v in query]
 
-    def resolve_vulns_by_year(self, info):
+    @staticmethod
+    async def resolve_vulns_by_year(parent, info):
         year_exp = sqlalchemy.func.extract('year', VulnerabilityModel.published_date)
         count_exp = sqlalchemy.func.count(VulnerabilityModel.published_date)
-        vulns_by_year = Vulnerability.get_query(info).with_entities(year_exp, count_exp).group_by(year_exp).order_by(
-            year_exp).all()
+        vulns_by_year = (Vulnerability.get_query(info).with_entities(year_exp, count_exp)
+                         .group_by(year_exp).order_by(year_exp).all())
 
-        return [GrapheneCount(key=k, value=v) for k, v in vulns_by_year]
+        return [GrapheneCountValueObject(key=k, value=v) for k, v in vulns_by_year]
 
     def resolve_vulns_severity(self, info):
         # the following counts the number of vulnerabilities of each severity by the severity field

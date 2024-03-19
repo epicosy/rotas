@@ -1,5 +1,6 @@
 import graphene
 
+from sqlalchemy import desc
 from graphene.types.objecttype import ObjectType
 
 from arepo.models.common.vulnerability import VulnerabilityCWEModel
@@ -18,7 +19,7 @@ from rotas.objects.graphene.helpers.types import LinkCount, LinkCountValueObject
 
 class EntityQuery(ObjectType):
     cwes = graphene.List(lambda: CWE, id=graphene.ID(), exists=graphene.Boolean())
-    vulnerability = graphene.Field(lambda: Vulnerability, id=graphene.ID())
+    vulnerability = graphene.Field(lambda: Vulnerability, vul_id=graphene.ID())
     vulnerabilities = graphene.List(lambda: Vulnerability, id=graphene.ID(), first=graphene.Int(), skip=graphene.Int(),
                                     last=graphene.Int())
     product_types = graphene.List(lambda: ProductType)
@@ -48,11 +49,12 @@ class EntityQuery(ObjectType):
         return query.order_by('id').all()
 
     @staticmethod
-    def resolve_vulnerability(parent, info, vul_id: int):
+    def resolve_vulnerability(parent, info, vul_id: str):
         return Vulnerability.get_query(info).filter(VulnerabilityModel.id == vul_id).first()
 
-    def resolve_vulnerabilities(self, info, id=None, first: int = None, skip: int = None, last: int = None, **kwargs):
-        query = Vulnerability.get_query(info).order_by(VulnerabilityModel.published_date.desc())
+    @staticmethod
+    async def resolve_vulnerabilities(parent, info, id=None, first: int = None, skip: int = None, last: int = None, **kwargs):
+        query = Vulnerability.get_query(info).order_by(desc(VulnerabilityModel.published_date))
 
         if id:
             return query.filter(VulnerabilityModel.id == id)

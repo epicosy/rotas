@@ -15,6 +15,7 @@ class LoadFile(graphene.Mutation):
     file = graphene.Field(lambda: CommitFile)
 
     def mutate(self, info, id: str):
+    
         file = CommitFile.get_query(info).filter_by(id=id).first()
 
         if not file:

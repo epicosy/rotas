@@ -89,7 +89,7 @@ def profiling_commit_query(info, query, min_changes, max_changes, min_files, max
     check_profile_commit_fields(min_changes, max_changes, min_files, max_files)
 
     vuln_query = query.with_entities(VulnerabilityModel.id).subquery()
-    commit_query = (Commit.get_query(info).filter(CommitModel.vulnerability_id.in_(select([vuln_query])))
+    commit_query = (Commit.get_query(info).filter(sqlalchemy.exists().where(CommitModel.vulnerability_id == vuln_query.c.id))
                     .filter(CommitModel.kind != 'parent'))
 
     commit_query = commit_query.filter(CommitModel.changes.isnot(None))

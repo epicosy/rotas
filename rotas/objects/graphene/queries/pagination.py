@@ -1,6 +1,7 @@
 import graphene
 
 from sqlalchemy import or_
+from sqlalchemy.orm.query import Query
 from typing import List
 from graphene.types.objecttype import ObjectType
 
@@ -27,7 +28,7 @@ class Pagination(ObjectType):
     pages = graphene.List(graphene.Int)
 
     @classmethod
-    def get_paginated(cls, query, page: int = 1, per_page: int = 10, left_edge: int = 4, right_edge: int = 4,
+    def get_paginated(cls, query: Query, page: int = 1, per_page: int = 10, left_edge: int = 4, right_edge: int = 4,
                       left_current: int = 5, right_current: int = 5):
         """
         Get a paginated response for a GraphQL query.
@@ -53,7 +54,7 @@ class Pagination(ObjectType):
             - elements: A list of paginated items.
 
         """
-
+        # TODO: the pagination functionality is only available from a Flask-SQLAlchem
         paginated = query.paginate(page=page, per_page=per_page)
         pages = list(paginated.iter_pages(left_edge=left_edge, right_edge=right_edge, left_current=left_current,
                                           right_current=right_current))

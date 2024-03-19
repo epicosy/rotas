@@ -217,7 +217,7 @@ class GitCountQuery(ObjectType):
                                                   extensions)
 
             vuln_query = commit_query.with_entities(CommitModel.vulnerability_id).subquery()
-            query = query.filter(VulnerabilityModel.id.in_(select([vuln_query])))
+            query = query.filter(sqlalchemy.exists().where(VulnerabilityModel.id == vuln_query.c.vulnerability_id))
 
             changes_count = (commit_query.group_by(CommitModel.changes)
                              .with_entities(CommitModel.changes, func.count().label('count'))
@@ -229,7 +229,7 @@ class GitCountQuery(ObjectType):
 
             commit_subquery = commit_query.with_entities(CommitModel.id).subquery()
             extensions_count = (
-                CommitFile.get_query(info).filter(CommitFileModel.commit_id.in_(select([commit_subquery])))
+                CommitFile.get_query(info).filter(sqlalchemy.exists().where(CommitFileModel.commit_id == commit_subquery.c.id))
                 .group_by(CommitFileModel.extension)
                 .with_entities(CommitFileModel.extension, func.count().label('count'))
                 .all())
