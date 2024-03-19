@@ -85,7 +85,7 @@ def profiling_vuln_query(info, start_year, end_year, cwe_ids, start_score, end_s
     return query
 
 
-def profiling_commit_query(info, query, min_changes, max_changes, min_files, max_files, extensions):
+def profiling_commit_query(info, query, single_commit, min_changes, max_changes, min_files, max_files, extensions):
     check_profile_commit_fields(min_changes, max_changes, min_files, max_files)
 
     vuln_query = query.with_entities(VulnerabilityModel.id).subquery()
@@ -94,6 +94,15 @@ def profiling_commit_query(info, query, min_changes, max_changes, min_files, max
 
     commit_query = commit_query.filter(CommitModel.changes.isnot(None))
     commit_query = commit_query.filter(CommitModel.files_count.isnot(None))
+
+    if single_commit:
+        # Get distinct commit_ids that have only one commit per vulnerability
+        single_commit_subquery = (commit_query.group_by(CommitModel.id, CommitModel.vulnerability_id)
+                                  .having(sqlalchemy.func.count(CommitModel.id) == 1)
+                                  .with_entities(CommitModel.id).subquery())
+
+        # Filter the main commit_query by the distinct commit_ids
+        commit_query = commit_query.filter(sqlalchemy.exists().where(CommitModel.id == single_commit_subquery.c.id))
 
     if min_changes or max_changes or min_files or max_files:
         commit_query = commit_query.group_by(CommitModel.id, CommitModel.vulnerability_id)

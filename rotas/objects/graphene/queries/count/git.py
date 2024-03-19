@@ -46,9 +46,9 @@ class GitCountQuery(ObjectType):
     profile_count = graphene.Field(ProfileCount, start_year=graphene.Int(), end_year=graphene.Int(),
                                    cwe_ids=graphene.List(graphene.Int), start_score=graphene.Float(),
                                    end_score=graphene.Float(), has_code=graphene.Boolean(), has_exploit=graphene.Boolean(),
-                                   has_advisory=graphene.Boolean(), min_changes=graphene.Int(),
-                                   max_changes=graphene.Int(), min_files=graphene.Int(), max_files=graphene.Int(),
-                                   extensions=graphene.List(graphene.String))
+                                   has_advisory=graphene.Boolean(), single_commit=graphene.Boolean(),
+                                   min_changes=graphene.Int(), max_changes=graphene.Int(), min_files=graphene.Int(),
+                                   max_files=graphene.Int(), extensions=graphene.List(graphene.String))
 
     def resolve_topics_count(self, info):
         query = Repository.get_query(info).join(RepositoryTopicModel).join(TopicModel)\
@@ -200,9 +200,9 @@ class GitCountQuery(ObjectType):
 
     def resolve_profile_count(self, info, start_year: int = None, end_year: int = None, cwe_ids: List[int] = None,
                               start_score: float = None, end_score: float = None, has_code: bool = False,
-                              has_exploit: bool = False, has_advisory: bool = False, min_changes: int = None,
-                              max_changes: int = None, min_files: int = None, max_files: int = None,
-                              extensions: List[str] = None):
+                              has_exploit: bool = False, has_advisory: bool = False, single_commit: bool = False,
+                              min_changes: int = None, max_changes: int = None, min_files: int = None,
+                              max_files: int = None, extensions: List[str] = None):
 
         changes_count = []
         files_count = []
@@ -214,8 +214,8 @@ class GitCountQuery(ObjectType):
                                      has_advisory)
 
         if has_code:
-            commit_query = profiling_commit_query(info, query, min_changes, max_changes, min_files, max_files,
-                                                  extensions)
+            commit_query = profiling_commit_query(info, query, single_commit, min_changes, max_changes, min_files,
+                                                  max_files, extensions)
 
             vuln_query = commit_query.with_entities(CommitModel.vulnerability_id).subquery()
             query = query.filter(sqlalchemy.exists().where(VulnerabilityModel.id == vuln_query.c.vulnerability_id))
