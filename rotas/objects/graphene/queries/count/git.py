@@ -4,8 +4,6 @@ import sqlalchemy
 from typing import List
 from graphql import GraphQLError
 from graphene import ObjectType
-from sqlalchemy.sql import func
-from sqlalchemy.sql import select
 
 from arepo.models.common.platform import ProductTypeModel, ConfigurationModel, ProductModel
 from arepo.models.common.vulnerability import VulnerabilityModel, VulnerabilityCWEModel
@@ -18,7 +16,7 @@ from rotas.objects.sqlalchemy.git import (Commit, Repository, CommitFile, Reposi
                                           RepositoryProductTypeModel)
 
 from rotas.objects.graphene.helpers.types import GrapheneCount, LinkCount, ProfileCount
-from rotas.objects.graphene.helpers.query import profiling_vuln_query, profiling_commit_query
+from rotas.objects.graphene.helpers.query import ProfilerQuery
 
 
 class GitCountQuery(ObjectType):
@@ -43,10 +41,9 @@ class GitCountQuery(ObjectType):
     files_changes_count = graphene.List(lambda: GrapheneCount)
     files_statuses = graphene.List(lambda: GrapheneCount)
 
-    profile_count = graphene.Field(ProfileCount, start_year=graphene.Int(), end_year=graphene.Int(),
-                                   cwe_ids=graphene.List(graphene.Int), start_score=graphene.Float(),
-                                   end_score=graphene.Float(), has_code=graphene.Boolean(), has_exploit=graphene.Boolean(),
-                                   has_advisory=graphene.Boolean(), single_commit=graphene.Boolean(),
+    profile_count = graphene.Field(ProfileCount, bf_class=graphene.String(), cwe_ids=graphene.List(graphene.Int),
+                                   language=graphene.String(), has_exploit=graphene.Boolean(),
+                                   has_advisory=graphene.Boolean(), patch_count=graphene.Int(),
                                    min_changes=graphene.Int(), max_changes=graphene.Int(), min_files=graphene.Int(),
                                    max_files=graphene.Int(), extensions=graphene.List(graphene.String))
 
@@ -198,68 +195,24 @@ class GitCountQuery(ObjectType):
 
         return [GrapheneCount(key=k, value=v) for k, v in query]
 
-    def resolve_profile_count(self, info, start_year: int = None, end_year: int = None, cwe_ids: List[int] = None,
-                              start_score: float = None, end_score: float = None, has_code: bool = False,
-                              has_exploit: bool = False, has_advisory: bool = False, single_commit: bool = False,
-                              min_changes: int = None, max_changes: int = None, min_files: int = None,
-                              max_files: int = None, extensions: List[str] = None):
+    def resolve_profile_count(self, info, cwe_ids: List[int] = None, bf_class: str = None, language: str = None,
+                              has_exploit: bool = False, has_advisory: bool = False, patch_count: int = None,
+                              min_changes: int = None,  max_changes: int = None, min_files: int = None,
+                              max_files: int = None, extensions: List[str] = None, diff_block_count: int = None):
 
-        changes_count = []
-        files_count = []
-        extensions_count = []
+        profiler_query = ProfilerQuery(info)
 
-        print("has_code", has_code, "min_changes", min_changes, "max_changes", max_changes)
+        profiler_query.profile_vulnerability(bf_class, cwe_ids, has_exploit, has_advisory)
+        profiler_query.profile_commit_file(extensions, diff_block_count)
+        profiler_query.profile_commit(language, patch_count, min_changes, max_changes, min_files, max_files)
+        profiler_query()
 
-        query = profiling_vuln_query(info, start_year, end_year, cwe_ids, start_score, end_score, has_exploit,
-                                     has_advisory)
-
-        if has_code:
-            commit_query = profiling_commit_query(info, query, single_commit, min_changes, max_changes, min_files,
-                                                  max_files, extensions)
-
-            vuln_query = commit_query.with_entities(CommitModel.vulnerability_id).subquery()
-            query = query.filter(sqlalchemy.exists().where(VulnerabilityModel.id == vuln_query.c.vulnerability_id))
-
-            changes_count = (commit_query.group_by(CommitModel.changes)
-                             .with_entities(CommitModel.changes, func.count().label('count'))
-                             .all())
-
-            files_count = (commit_query.group_by(CommitModel.files_count)
-                           .with_entities(CommitModel.files_count, func.count().label('count'))
-                           .all())
-
-            commit_subquery = commit_query.with_entities(CommitModel.id).subquery()
-            extensions_count = (
-                CommitFile.get_query(info).filter(sqlalchemy.exists().where(CommitFileModel.commit_id == commit_subquery.c.id))
-                .group_by(CommitFileModel.extension)
-                .with_entities(CommitFileModel.extension, func.count().label('count'))
-                .all())
-
-        year_counts = query.group_by(
-            func.extract('year', VulnerabilityModel.published_date)
-        ).with_entities(
-            func.extract('year', VulnerabilityModel.published_date).label('year'),
-            func.count().label('count')
-        ).all()
-
-        cwe_counts = query.group_by(
-            VulnerabilityCWEModel.cwe_id
-        ).with_entities(
-            VulnerabilityCWEModel.cwe_id,
-            func.count().label('count')
-        ).all()
-
-        score_counts = query.group_by(
-            VulnerabilityModel.exploitability
-        ).with_entities(
-            VulnerabilityModel.exploitability.label('score'),
-            func.count().label('count')
-        ).all()
-
-        return ProfileCount(year=[GrapheneCount(key=year, value=count) for year, count in year_counts],
-                            cwe=[GrapheneCount(key=cwe_id, value=count) for cwe_id, count in cwe_counts],
-                            score=[GrapheneCount(key=score, value=count) for score, count in score_counts],
-                            changes=[GrapheneCount(key=changes, value=count) for changes, count in changes_count],
-                            files=[GrapheneCount(key=files, value=count) for files, count in files_count],
-                            extensions=[GrapheneCount(key=extension, value=count) for extension, count in extensions_count],
-                            total=query.count())
+        return ProfileCount(classes=[GrapheneCount(key, count) for key, count in profiler_query.get_bf_class_counts()],
+                            cwe=[GrapheneCount(key, count) for key, count in profiler_query.get_cwe_counts()],
+                            patches=[GrapheneCount(key, count) for key, count in profiler_query.get_patch_counts()],
+                            languages=[GrapheneCount(key, count) for key, count in profiler_query.get_language_counts()],
+                            changes=[GrapheneCount(key, count) for key, count in profiler_query.get_changes_counts()],
+                            files=[GrapheneCount(key, count) for key, count in profiler_query.get_files_counts()],
+                            extensions=[GrapheneCount(key, count) for key, count in profiler_query.get_extension_counts()],
+                            diff_blocks=[GrapheneCount(key, count) for key, count in profiler_query.get_diff_block_counts()],
+                            total=profiler_query.get_total())

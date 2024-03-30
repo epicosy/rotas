@@ -3,8 +3,21 @@ from graphene_sqlalchemy import SQLAlchemyObjectType
 
 from arepo.models.vcs.core import (CommitModel, CommitFileModel, RepositoryModel)
 from arepo.models.vcs.symbol import RepositoryTopicModel, TopicModel, RepositoryProductTypeModel
+from arepo.models.vcs.diff import DiffBlockModel
 
 from rotas.objects.sqlalchemy.common.platform import ProductType
+
+
+class DiffBlock(SQLAlchemyObjectType):
+    class Meta:
+        model = DiffBlockModel
+        use_connection = True
+
+    id = graphene.String()
+    content = graphene.String()
+
+    def resolve_id(self, info):
+        return self.id
 
 
 class RepositoryTopic(SQLAlchemyObjectType):

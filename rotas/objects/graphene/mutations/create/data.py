@@ -10,7 +10,7 @@ from arepo.models.data import ProfileModel, ProfileCWEModel, DatasetVulnerabilit
 from rotas.objects.sqlalchemy.common.vulnerability import Vulnerability
 from rotas.objects.sqlalchemy.data import Profile, ProfileCWE, Dataset, DatasetVulnerability
 
-from rotas.objects.graphene.helpers.query import profiling_vuln_query, profiling_commit_query
+#from rotas.objects.graphene.helpers.query import profiling_vuln_query, profiling_commit_query
 
 
 class CreateProfile(graphene.Mutation):
@@ -87,20 +87,21 @@ class CreateDataset(graphene.Mutation):
             if not profile:
                 raise GraphQLError(f"Profile with id {profile_id} does not exist")
 
+            # TODO: fix this
             # get cwe_ids from the profile
             cwe_ids = [r.cwe_id for r in ProfileCWE.get_query(info).filter_by(profile_id=profile_id).all()]
             extensions = [profile.extension] if profile.extension else None
-            vuln_query = profiling_vuln_query(info, start_year=profile.start_year, end_year=profile.end_year,
-                                              start_score=profile.start_score, end_score=profile.end_score,
-                                              cwe_ids=cwe_ids, has_exploit=profile.has_exploit,
-                                              has_advisory=profile.has_advisory)
-            commit_query = profiling_commit_query(info, vuln_query, single_commit=profile.single_commit,
-                                                  min_changes=profile.min_changes,
-                                                  max_changes=profile.max_changes, min_files=profile.min_files,
-                                                  max_files=profile.max_files, extensions=extensions)
+            #vuln_query = profiling_vuln_query(info, start_year=profile.start_year, end_year=profile.end_year,
+            #                                  start_score=profile.start_score, end_score=profile.end_score,
+            #                                  cwe_ids=cwe_ids, has_exploit=profile.has_exploit,
+            #                                  has_advisory=profile.has_advisory)
+            #commit_query = profiling_commit_query(info, vuln_query, single_commit=profile.single_commit,
+            #                                      min_changes=profile.min_changes,
+            #                                      max_changes=profile.max_changes, min_files=profile.min_files,
+            #                                      max_files=profile.max_files, extensions=extensions)
 
             # get distinct cve_ids from commit_query
-            cve_ids = [c.vulnerability_id for c in commit_query.with_entities(CommitModel.vulnerability_id).distinct().all()]
+            #cve_ids = [c.vulnerability_id for c in commit_query.with_entities(CommitModel.vulnerability_id).distinct().all()]
 
         dataset = DatasetModel(name=name, description=description)
         dataset.save()

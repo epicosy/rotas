@@ -20,12 +20,14 @@ class NestedGrapheneCount(ObjectType):
 
 class ProfileCount(ObjectType):
     total = graphene.Int()
-    year = graphene.List(lambda: GrapheneCount)
+    classes = graphene.List(lambda: GrapheneCount)
     cwe = graphene.List(lambda: GrapheneCount)
-    score = graphene.List(lambda: GrapheneCount)
+    languages = graphene.List(lambda: GrapheneCount)
+    patches = graphene.List(lambda: GrapheneCount)
     changes = graphene.List(lambda: GrapheneCount)
     files = graphene.List(lambda: GrapheneCount)
     extensions = graphene.List(lambda: GrapheneCount)
+    diff_blocks = graphene.List(lambda: GrapheneCount)
 
 
 class Position(ObjectType):

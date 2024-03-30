@@ -1,20 +1,24 @@
 import sqlalchemy
 
+from typing import List
 from graphql import GraphQLError
-from sqlalchemy.sql import select
 
 from rotas.objects.sqlalchemy.common.vulnerability import (Vulnerability, VulnerabilityModel, Reference, ReferenceModel,
-                                                           VulnerabilityCWEModel, ReferenceTagModel)
-from rotas.objects.sqlalchemy.git import Commit, CommitModel, CommitFile, CommitFileModel
+                                                           VulnerabilityCWE, VulnerabilityCWEModel, ReferenceTagModel)
+from rotas.objects.sqlalchemy.common.weakness import CWEBFClassModel
+from rotas.objects.sqlalchemy.bf import BFClassModel
+from rotas.objects.sqlalchemy.git import Commit, CommitModel, CommitFile, CommitFileModel, RepositoryModel, Repository
+from rotas.objects.sqlalchemy.git import DiffBlock, DiffBlockModel
 
 
-def check_profile_vuln_fields(start_year, end_year, start_score, end_score):
+def check_profile_vuln_fields(start_year, end_year):
     # min score should not be negative and max score should not be greater than 100
-    if start_score and start_score < 0:
-        raise GraphQLError("Invalid min score")
 
-    if end_score and end_score > 10:
-        raise GraphQLError("Invalid max score")
+    # if start_score and start_score < 0:
+    #    raise GraphQLError("Invalid min score")
+
+    # if end_score and end_score > 10:
+    #    raise GraphQLError("Invalid max score")
 
     if start_year and start_year < 1987:
         raise GraphQLError("Invalid start year")
@@ -29,8 +33,8 @@ def check_profile_vuln_fields(start_year, end_year, start_score, end_score):
     if start_year and end_year and start_year > end_year:
         raise GraphQLError("Invalid date range")
 
-    if start_score and end_score and start_score > end_score:
-        raise GraphQLError("Invalid score range")
+    # if start_score and end_score and start_score > end_score:
+    #    raise GraphQLError("Invalid score range")
 
 
 def check_profile_commit_fields(min_changes, max_changes, min_files, max_files):
@@ -47,90 +51,187 @@ def check_profile_commit_fields(min_changes, max_changes, min_files, max_files):
         raise GraphQLError("Invalid changes range")
 
 
-def profiling_vuln_query(info, start_year, end_year, cwe_ids, start_score, end_score, has_exploit, has_advisory):
-    check_profile_vuln_fields(start_year, end_year, start_score, end_score)
+class ProfilerQuery:
+    def __init__(self, info):
+        self.info = info
+        self._query = None
+        self.vuln_cwe_query = VulnerabilityCWE.get_query(self.info)
+        self.diff_block_query = DiffBlock.get_query(self.info)
+        self.commit_file_query = CommitFile.get_query(self.info)
+        self.commit_query = (Commit.get_query(self.info).filter(CommitModel.kind != 'parent')
+                             .filter(CommitModel.changes.isnot(None)).filter(CommitModel.files_count.isnot(None)))
+        self.repo_query = Repository.get_query(self.info)
+        self.vuln_query = (Vulnerability.get_query(self.info)
+                           .outerjoin(VulnerabilityCWEModel, VulnerabilityModel.id == VulnerabilityCWEModel.vulnerability_id)
+                           .outerjoin(CWEBFClassModel, CWEBFClassModel.cwe_id == VulnerabilityCWEModel.cwe_id)
+                           .outerjoin(BFClassModel, BFClassModel.id == CWEBFClassModel.bf_class_id))
 
-    query = Vulnerability.get_query(info).outerjoin(VulnerabilityCWEModel,
-                                                    VulnerabilityModel.id == VulnerabilityCWEModel.vulnerability_id)
+        self.reference_query = Reference.get_query(self.info)
 
-    if cwe_ids:
-        query = query.filter(VulnerabilityCWEModel.cwe_id.in_(cwe_ids))
+    def profile_commit_file(self, extensions: List[str] = None, diff_block_count: int = None):
+        if extensions:
+            print(f"Filtering by extensions: {extensions}")
+            self.commit_file_query = self.commit_file_query.filter(CommitFileModel.extension.in_(extensions))
 
-    if start_year:
-        query = query.filter(VulnerabilityModel.published_date >= f'{start_year}-01-01')
+        if diff_block_count and diff_block_count > 0:
+            print(f"Filtering by diff_block_count: {diff_block_count}")
+            subquery = (self.diff_block_query.group_by(DiffBlockModel.commit_file_id)
+                        .having(sqlalchemy.func.count(DiffBlockModel.commit_file_id) == diff_block_count)
+                        .with_entities(DiffBlockModel.commit_file_id).subquery())
 
-    if end_year:
-        query = query.filter(VulnerabilityModel.published_date <= f'{end_year}-12-31')
+            self.commit_file_query = self.commit_file_query.filter(CommitFileModel.id == subquery.c.commit_file_id)
 
-    if start_score:
-        query = query.filter(VulnerabilityModel.exploitability >= start_score)
+    def profile_commit(self, repo_lang: str = None, patch_count: int = None, min_changes: int = None,
+                       max_changes: int = None, min_files: int = None, max_files: int = None):
 
-    if end_score:
-        query = query.filter(VulnerabilityModel.exploitability <= end_score)
+        check_profile_commit_fields(min_changes, max_changes, min_files, max_files)
 
-    if has_exploit:
-        # get the ReferenceTag id for the exploit tag
-        subquery = Reference.get_query(info).join(ReferenceTagModel).filter(ReferenceTagModel.tag_id == 10). \
-            distinct().filter(ReferenceModel.vulnerability_id == VulnerabilityModel.id).exists()
+        if patch_count and patch_count > 0:
+            print(f"Filtering by patch count: {patch_count}")
+            # Get distinct vuln_ids that have only commit count
+            commit_count_subquery = (self.commit_query.group_by(CommitModel.vulnerability_id)
+                                     .having(sqlalchemy.func.count(CommitModel.vulnerability_id) == patch_count)
+                                     .with_entities(CommitModel.vulnerability_id).subquery())
 
-        query = query.filter(subquery)
+            # Filter the main commit_query by the distinct commit_ids
+            self.commit_query = self.commit_query.filter(
+                CommitModel.vulnerability_id == commit_count_subquery.c.vulnerability_id)
 
-    if has_advisory:
-        # get the ReferenceTag id for the advisory tag (1 and 16)
-        subquery = Reference.get_query(info).join(ReferenceTagModel).filter(ReferenceTagModel.tag_id.in_([1, 16])). \
-            distinct().filter(ReferenceModel.vulnerability_id == VulnerabilityModel.id).exists()
+        if repo_lang:
+            print(f"Filtering by repo_lang: {repo_lang}")
+            # find the commit ids that have the repo_lang
+            repo_lang_subquery = (self.repo_query.filter(RepositoryModel.language == repo_lang)
+                                  .join(CommitModel.repository).with_entities(CommitModel.id).subquery())
 
-        query = query.filter(subquery)
+            # filter the main commit_query by the commit ids
+            self.commit_query = self.commit_query.filter(CommitModel.id == repo_lang_subquery.c.id)
 
-    return query
+        if min_changes or max_changes or min_files or max_files:
+            changes_query = self.commit_query.group_by(CommitModel.id, CommitModel.vulnerability_id)
 
+            if min_changes or max_changes:
+                if min_changes:
+                    print(f"Filtering by min_changes: {min_changes}")
+                    changes_query = changes_query.having(sqlalchemy.func.min(CommitModel.changes) >= min_changes)
 
-def profiling_commit_query(info, query, single_commit, min_changes, max_changes, min_files, max_files, extensions):
-    check_profile_commit_fields(min_changes, max_changes, min_files, max_files)
+                if max_changes:
+                    print(f"Filtering by max_changes: {max_changes}")
+                    changes_query = changes_query.having(sqlalchemy.func.max(CommitModel.changes) <= max_changes)
 
-    vuln_query = query.with_entities(VulnerabilityModel.id).subquery()
-    commit_query = (Commit.get_query(info).filter(sqlalchemy.exists().where(CommitModel.vulnerability_id == vuln_query.c.id))
-                    .filter(CommitModel.kind != 'parent'))
+            if min_files or max_files:
+                if min_files:
+                    print(f"Filtering by min_files: {min_files}")
+                    changes_query = changes_query.having(sqlalchemy.func.min(CommitModel.files_count) >= min_files)
 
-    commit_query = commit_query.filter(CommitModel.changes.isnot(None))
-    commit_query = commit_query.filter(CommitModel.files_count.isnot(None))
+                if max_files:
+                    print(f"Filtering by max_files: {max_files}")
+                    changes_query = changes_query.having(sqlalchemy.func.max(CommitModel.files_count) <= max_files)
 
-    if single_commit:
-        # Get distinct commit_ids that have only one commit per vulnerability
-        single_commit_subquery = (commit_query.group_by(CommitModel.id, CommitModel.vulnerability_id)
-                                  .having(sqlalchemy.func.count(CommitModel.id) == 1)
-                                  .with_entities(CommitModel.id).subquery())
+            subquery = changes_query.subquery()
+            self.commit_query = self.commit_query.filter(CommitModel.id == subquery.c.id)
 
-        # Filter the main commit_query by the distinct commit_ids
-        commit_query = commit_query.filter(sqlalchemy.exists().where(CommitModel.id == single_commit_subquery.c.id))
+    def profile_vulnerability(self, bf_class: str = None, cwe_ids: List[int] = None, has_exploit: bool = None,
+                              has_advisory: bool = None):
 
-    if min_changes or max_changes or min_files or max_files:
-        commit_query = commit_query.group_by(CommitModel.id, CommitModel.vulnerability_id)
+        # check_profile_vuln_fields(start_year, end_year)
 
-        if min_changes or max_changes:
-            if min_changes:
-                commit_query = commit_query.having(sqlalchemy.func.min(CommitModel.changes) >= min_changes)
+        if bf_class:
+            print(f"Filtering by bf_class: {bf_class}")
+            self.vuln_query = self.vuln_query.filter(BFClassModel.name == bf_class)
 
-            if max_changes:
-                commit_query = commit_query.having(sqlalchemy.func.max(CommitModel.changes) <= max_changes)
+        if cwe_ids:
+            print(f"Filtering by cwe_ids: {cwe_ids}")
+            self.vuln_query = self.vuln_query.filter(VulnerabilityCWEModel.cwe_id.in_(cwe_ids))
 
-        if min_files or max_files:
-            if min_files:
-                commit_query = commit_query.having(sqlalchemy.func.min(CommitModel.files_count) >= min_files)
+        # if start_year:
+        #    print(f"Filtering by start_year: {start_year}")
+        #    self.vuln_query = self.vuln_query.filter(VulnerabilityModel.published_date >= f'{start_year}-01-01')
 
-            if max_files:
-                commit_query = commit_query.having(sqlalchemy.func.max(CommitModel.files_count) <= max_files)
+        # if end_year:
+        #    print(f"Filtering by end_year: {end_year}")
+        #    self.vuln_query = self.vuln_query.filter(VulnerabilityModel.published_date <= f'{end_year}-12-31')
 
-        subquery = commit_query.subquery()
-        commit_query = (Commit.get_query(info).join(subquery, CommitModel.id == subquery.c.id)
-                        .filter(subquery.c.vulnerability_id == CommitModel.vulnerability_id))
+        if has_exploit:
+            print("Including only vulnerabilities with exploits")
+            # get the ReferenceTag id for the exploit tag
+            subquery = self.reference_query.join(ReferenceTagModel).filter(ReferenceTagModel.tag_id == 10). \
+                distinct().filter(ReferenceModel.vulnerability_id == VulnerabilityModel.id).exists()
 
-    if extensions:
-        extension_subquery = (CommitFile.get_query(info)
-                              .filter(CommitFileModel.commit_id == CommitModel.id)
-                              .filter(CommitFileModel.extension.in_(extensions))
-                              .subquery())
+            self.vuln_query = self.vuln_query.filter(subquery)
 
-        commit_query = commit_query.join(extension_subquery, extension_subquery.c.commit_id == CommitModel.id)
+        if has_advisory:
+            print("Including only vulnerabilities with advisories")
+            # get the ReferenceTag id for the advisory tag (1 and 16)
+            subquery = (self.reference_query.join(ReferenceTagModel)
+                        .filter(ReferenceTagModel.tag_id.in_([1, 16]))
+                        .distinct().filter(ReferenceModel.vulnerability_id == VulnerabilityModel.id).exists())
 
-    return commit_query
+            self.vuln_query = self.vuln_query.filter(subquery)
+
+    def __call__(self):
+        if self._query is None:
+            subquery = self.commit_file_query.with_entities(CommitFileModel.commit_id).distinct().subquery()
+            self.commit_query = (self.commit_query
+                                 .filter(sqlalchemy.exists().where(CommitFileModel.commit_id == subquery.c.commit_id)))
+
+            subquery = self.commit_query.with_entities(CommitModel.vulnerability_id).distinct().subquery()
+            self.vuln_query = (self.vuln_query
+                               .filter(sqlalchemy.exists().where(VulnerabilityModel.id == subquery.c.vulnerability_id)))
+            self._query = self.vuln_query.with_entities(VulnerabilityModel.id).distinct().subquery()
+
+            # propagate the query to the subqueries
+            self.commit_query = (self.commit_query
+                                 .filter(sqlalchemy.exists().where(CommitModel.vulnerability_id == self._query.c.id)))
+            subquery = self.commit_query.with_entities(CommitModel.id).subquery()
+            # TODO: check why this does not propagate back the changes
+            self.commit_file_query = (self.commit_file_query
+                                      .filter(sqlalchemy.exists().where(CommitFileModel.commit_id == subquery.c.id)))
+
+        return self._query
+
+    def get_cwe_counts(self):
+        return (self.vuln_query.group_by(VulnerabilityCWEModel.cwe_id)
+                .with_entities(VulnerabilityCWEModel.cwe_id, sqlalchemy.func.count().label('count')).all())
+
+    def get_bf_class_counts(self):
+        # TODO: fix this to retrieve the number of vulnerabilities per bf_class for the vuln_query and not the entire db
+        return (self.vuln_query.group_by(BFClassModel.name)
+                .with_entities(BFClassModel.name, sqlalchemy.func.count().label('count')).all())
+
+    def get_language_counts(self):
+        subquery = (self.commit_query.group_by(CommitModel.repository_id, CommitModel.vulnerability_id)
+                    .with_entities(CommitModel.repository_id).subquery())
+
+        return (self.repo_query.filter(RepositoryModel.id == subquery.c.repository_id)
+                .group_by(RepositoryModel.language)
+                .with_entities(RepositoryModel.language, sqlalchemy.func.count().label('count')).all())
+
+    def get_patch_counts(self):
+        # TODO: optimize this, it is very slow
+        subquery = (self.commit_query.group_by(CommitModel.vulnerability_id).
+                    with_entities(sqlalchemy.func.count().label('count')).subquery())
+
+        return (Vulnerability.get_query(self.info).with_entities(subquery.c.count, sqlalchemy.func.count(subquery.c.count)).
+                group_by(subquery.c.count).order_by(subquery.c.count).all())
+
+    def get_changes_counts(self):
+        return (self.commit_query.group_by(CommitModel.changes)
+                .with_entities(CommitModel.changes, sqlalchemy.func.count().label('count')).all())
+
+    def get_files_counts(self):
+        return (self.commit_query.group_by(CommitModel.files_count)
+                .with_entities(CommitModel.files_count, sqlalchemy.func.count().label('count')).all())
+
+    def get_extension_counts(self):
+        return (self.commit_file_query.group_by(CommitFileModel.extension)
+                .with_entities(CommitFileModel.extension, sqlalchemy.func.count().label('count')).all())
+
+    def get_diff_block_counts(self):
+        subquery = (self.commit_file_query.join(CommitFileModel.diff_blocks).group_by(CommitFileModel.id)
+                    .with_entities(CommitFileModel.id, sqlalchemy.func.count(DiffBlockModel.id).label('count')).subquery())
+
+        return (CommitFile.get_query(self.info).with_entities(subquery.c.count, sqlalchemy.func.count(subquery.c.count))
+                .group_by(subquery.c.count).order_by(subquery.c.count).all())
+
+    def get_total(self):
+        return self.vuln_query.count()
